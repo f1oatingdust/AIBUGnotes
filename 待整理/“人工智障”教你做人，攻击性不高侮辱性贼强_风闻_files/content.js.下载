@@ -1,0 +1,1181 @@
+(function() {
+    $(function() {
+        $('.share-box').find('.op-tools').find('a').click(function() {
+            return false;
+
+        });
+        var praiseButton = $('.share-box').find('.op-tools').find('a').eq(2); //赞
+        var collectButton = $('.share-box').find('.op-tools').find('a').eq(0); //收藏
+
+        var postId = mylib.getQueryString('id');
+        //文章的点赞
+        praiseButton.click(function() {
+            mylib.praise(postId, this);
+            return false;
+        });
+        //文章的收藏
+        collectButton.click(function() {
+            var codeType = $(this).attr('data-type');
+            var codeId = $(this).attr('data-id');
+            mylib.collect(codeId, codeType, 1, this);
+            return false;
+        });
+        
+        var layOut;
+		$(document).click(function(event) {
+        	if(layOut) layer.close(layOut);
+        });
+
+        //文章最下面那个红色的按钮
+        $('.article-bottom-user').find('.attention').click(function(event) {
+            var that = this;
+            var id = $(this).attr('data-id');
+            mylib.sendPostAjax('/user/attention', { to_user_id: id }, function(res) {
+                if (res.code == 0) {
+                    if (res.data.action == 'set') {
+                        $(that).text('已关注');
+                            sensors.track('web_fengwen_content_click', {
+                                module:"关注",
+                            });
+                            sessionStorage.setItem("enter_page",document.title);//入口页面
+                            sessionStorage.setItem("enter_module","web_fengwen_content_click");//入口模块
+                            sessionStorage.setItem("enter_element","关注");//入口元素
+                            sessionStorage.setItem("enter_serial","");//入口元素序号
+                        
+                    } else if (res.data.action == 'cancel') {
+                        $(that).text('+关注');
+                    }
+                }
+
+            });
+            return false;
+        });
+
+
+    });
+
+
+    function zoomImg(){
+    	function getOriginalUrl(url){
+            if (url.indexOf("?") != -1) {
+                return url.split('?')[0];
+            }else{
+                return url;
+            }   
+        }
+
+        function detectmob(){
+    		if (navigator.userAgent.match(/Android/i)
+					|| navigator.userAgent.match(/webOS/i)
+					|| navigator.userAgent.match(/iPhone/i)
+					|| navigator.userAgent.match(/iPad/i)
+					|| navigator.userAgent.match(/iPod/i)
+					|| navigator.userAgent.match(/BlackBerry/i)
+					|| navigator.userAgent.match(/Windows Phone/i)) {
+				return true;
+			} else {
+				return false;
+			}  
+    	}
+        var newImg = null;
+        var _mask = null;
+        var oldPosLeft;
+        var oldPosTop;
+        var oldWidth;
+        var oldHeight;
+ 		var clientWidth = document.body.clientWidth;
+        var maxWidth;
+        var isMobile = detectmob();
+        //预加载图片
+        var imgs = $('.article-txt-content').find('img');
+       
+        $.each(imgs, function(){
+        	var src = $(this).attr("src");
+            setTimeout(function(){
+    			var originalUrl = getOriginalUrl(src);
+	            var img = new Image;
+	            img.onload = function(){
+	                img = null;
+	            };
+	            img.src = originalUrl;
+	        });
+        });
+        $('.article-txt-content').find('img').mouseover(function(event) {
+        	if(this.src.indexOf('.gif') > 0){
+        		return false;
+        	}
+            var originalUrl = getOriginalUrl($(this).attr("src"));
+            newImg = $('<img/>');
+            var that = this;
+            newImg.attr("src", originalUrl).load(function() {
+                realWidth = this.width;
+                realHeight = this.height;
+                if(realWidth >= 500 || realHeight >=500){
+                    $(that).css('cursor', 'zoom-in');
+                }
+            });
+
+        }).click(function(event) {
+            //放到到中心
+            //记录坐标
+            
+            if(this.src.indexOf('.gif') > 0){
+        		return false;
+        	}
+            var offset = $(this).offset();
+            oldPosTop = offset.top;
+            oldPosLeft = offset.left;
+            oldWidth = $(this).width();
+            oldHeight = $(this).height();
+            newImg = $('<img/>');
+            var originalUrl = getOriginalUrl($(this).attr("src"));
+           
+            newImg.attr("src", originalUrl).load(function() {
+                realWidth = this.width;
+                realHeight = this.height;
+               	if(isMobile){
+					maxWidth = clientWidth;
+                }else{
+                	maxWidth = 1024;
+                }
+                if((realWidth > maxWidth) || isMobile){
+	                realHeight = realHeight * maxWidth / realWidth;
+	                realWidth = maxWidth;
+	            }
+	            
+                if(isMobile || (realWidth >= 500 || realHeight >=500)){
+                    _mask = $('<div class="window_mask"></div>');
+                    _mask.css('display', 'none').appendTo('body').fadeIn();
+                    $('body').append(newImg);
+                    newImg.css({
+                        'position' : 'absolute',
+                        'z-index' : 10001,
+                        'width' : oldWidth,
+                        'height' : oldHeight,
+                        'left' : oldPosLeft,
+                        'top' : oldPosTop,
+
+                    });
+                    
+                    var left =(window.innerWidth - realWidth) / 2 + 'px';
+                    var dis = window.innerHeight- realHeight;
+                    var top;
+                    if(dis > 0){
+ 						top = (window.innerHeight- realHeight) /2  + $(window).scrollTop() + "px";	//短图
+                    }else{
+                    	top = $(window).scrollTop() + "px";
+                    }
+                   
+
+                    newImg.animate({height:realHeight, width:realWidth, left:left,top:top});
+                    newImg.mouseover(function(){
+                        $(this).css('cursor', 'zoom-out');
+                    });
+
+                }
+            });
+            return false;
+        });
+        //点击空白处关闭弹出层
+        $(document).click(function(event) {
+            if(newImg){
+                newImg.animate({height:oldHeight, width:oldWidth, left:oldPosLeft,top:oldPosTop}, function(){
+                    newImg.remove();
+                    newImg = null;
+                });
+            }
+            if(_mask){
+                _mask.fadeOut(function(){
+                    _mask.remove();
+                    _mask = null;
+                });
+                
+            }
+        });
+        
+    }
+
+    //定位到评论框
+	if(window.location.href.indexOf('comments-container') > -1){
+		setTimeout(function(){
+			var offsetTop = $('#comments-container').offset().top;
+			$(window).scrollTop(offsetTop);
+		}, 500)
+		 
+	}
+	//跳转视频大小
+    $(function(){
+ 		var resizeIframe = function() { 
+			var d = document.body.clientWidth; 
+			var c = document.getElementsByTagName("iframe"); 
+			for (var a = 0; a <= c.length; a++) { 
+				try { 
+					if (c[a].src.indexOf("youku.com") > -1 || c[a].src.indexOf("qq.com") > -1 || c[a].src.indexOf("myqcloud.com") > -1 || c[a].src.indexOf("bilibili.com") > -1) { 
+						if(d > 1000){
+							//c[a].width = "90%";
+							//c[a].height = 770 * 9 / 16;
+						}else{
+							c[a].width = "99%";
+							c[a].height = d * 9 / 16;
+						}
+					} 
+		   	 	} catch (b) {} 
+			} 
+		};
+		resizeIframe();
+    });
+    //文章分页
+    (function(){
+        $(function(){
+            var text = $('.article-txt-content').html();
+            var reg=/<hr[^>]*>/i;
+            var arr = text.split(reg);
+
+            var len = arr.length;
+            if (len > 1) {
+            	var currentPage = mylib.getQueryString('page');
+                var postId = mylib.getQueryString('id');
+
+                // var url = window.location.href;
+                // var index = url.indexOf('&page');
+                // var realUrl;
+                // if(index > 0){
+                //     realUrl = url.substring(0, index); 
+                // }else{
+                //     realUrl = url;
+                // }
+                var realUrl = '/main/content?id=' + postId;
+                var str = '';
+                var str = '<div>';
+                str += '<ul class="pagination clearfix">';
+                str += '<li class="prev">上一页</li>';
+                for (var i = 1; i <= len ; i++) {
+                    var onePageUrl = realUrl + '&page='+ i;
+                    str += '<li class="expand-one"><a href="'+onePageUrl+'">' + i + '</a></li>';
+                }
+                
+                str += '<li class="next">下一页</li>';
+                str += '<li class="expand-all"><a href="'+realUrl+'&page=0">余下全文</a></li>';
+                str += '</ul>';
+                str += '</div>';
+                if(currentPage === null){   //没有page参数
+                    mylib.setCookie('postpage', postId + '_' + 1, '/');
+                    $('.article-txt-content').html(arr[0]); 
+                    $(str).appendTo($('.article-txt-content'));
+                    $('.article-txt-content').find('.expand-one').removeClass('active').eq(0).addClass('active'); 
+                    $('.article-txt-content').find('.prev').hide();
+                }else{          //有page参数
+                    currentPage = parseInt(currentPage);
+                   
+                    if(currentPage > 0){
+                        mylib.setCookie('postpage', postId + '_' + currentPage, '/');
+                        currentPage = parseInt(currentPage);
+                        var offset = currentPage - 1;
+                        offset = offset <0 ? 0 : offset;
+                        $('.article-txt-content').html(arr[offset]);
+                        $(str).appendTo($('.article-txt-content')); 
+                        $('.article-txt-content').find('.expand-one').removeClass('active').eq(offset).addClass('active');
+                        //第一页不显示上一页 最后一页不显示下一页
+                        if(currentPage == 1){
+                            $('.article-txt-content').find('.prev').hide();
+                        }
+                        if(currentPage >= len){
+                            $('.article-txt-content').find('.next').hide();
+                            //第二页之后加入免责声明
+                            setTimeout(function(){
+                            	var declaration = getDeclaration();
+                            	if($('.vote-module').length > 0){
+									$('.vote-module').after(declaration);
+                            	}else{
+                            		$('.article-txt-content').find('.pagination').before(declaration);
+                            	}
+                            }, 200);
+                        }
+                    }else if(currentPage == 0){
+                        //$('.article-txt-content').html(arr.join('')); 
+                       
+                        $(str).appendTo($('.article-txt-content'));
+                        $('.article-txt-content').find('.expand-all').removeClass('active').addClass('active'); 
+                        //第0页显示全部 不显示上一页下一页
+                        $('.article-txt-content').find('.prev').hide();
+                        $('.article-txt-content').find('.next').hide();
+                        //读取page
+                        var postpage = mylib.getCookie('postpage');
+
+                        if(postpage){
+                            var arr = postpage.split('_');
+                            var cookiePostId = arr[0];
+                            var cookiePage = arr[1];
+                            if(cookiePostId == postId){
+                                cookiePage = parseInt(cookiePage);
+                                var hr;
+                                var offset;
+                                var index;
+                                if(cookiePage >=1 && cookiePage < len){
+                                    index = (cookiePage - 1) <=0 ? 0 : cookiePage -1;
+                                    hr = $('.article-txt-content').find('hr').eq(index);
+                                    offsetTop = hr.offset().top -100;
+                                }else if(cookiePage == len){    //最后一页
+                                    hr = $('.article-txt-content');
+                                    offsetTop = hr.outerHeight();
+                                }
+                                $(window).scrollTop(offsetTop);
+                            }
+                            
+                        }
+                        $('.article-txt-content').find('hr').hide();
+                     	setTimeout(function(){
+                     		var declaration = getDeclaration();
+                        	if($('.vote-module').length > 0){
+								$('.vote-module').after(declaration);
+                        	}else{
+                        		$('.article-txt-content').find('.pagination').before(declaration);
+                        	}
+                        }, 200);
+                    }
+                }
+                
+                setTimeout(function(){
+					zoomImg();
+					playGif();
+				}, 200);
+                
+                var postId = mylib.getQueryString('id');
+                $('.article-txt-content').find('.prev').click(function(){
+                    window.location.href = realUrl + '&page='+ (currentPage - 1);
+                }).mouseover(function(){
+                    $(this).css({'background-color' : '#bd0509', 'color' : '#fff'});
+                }).mouseout(function(){
+                    $(this).css({'background-color' : '#fff', 'color' : '#000'});
+                });
+                $('.article-txt-content').find('.next').click(function(){
+                    currentPage = currentPage === null ? 1 : currentPage;
+                    window.location.href = realUrl + '&page='+ (currentPage + 1);
+                }).mouseover(function(){
+                    $(this).css({'background-color' : '#bd0509', 'color' : '#fff'});
+                }).mouseout(function(){
+                    $(this).css({'background-color' : '#fff', 'color' : '#000'});
+                });
+
+            }else{
+            	setTimeout(function(){
+					zoomImg();
+					playGif();
+				}, 200);
+            }
+            
+        })
+    })();
+ 
+
+	function playGif(){
+       $('.article-txt-content').find('img').each(function(){
+            //如果是动图 且不是表情
+			if(this.src.indexOf('.gif') > -1 && this.src.indexOf('/static/imgs/smiles/') == -1){
+				$(this).css({'cursor' : 'pointer'});
+	            this.hasPlay = false;
+	            var $wrap = $('<div></div>');
+	            $wrap.css({'position':'relative','display' : 'inline-block'});
+	            $(this).wrap($wrap);
+	            var $button = $("<span></span>");
+                var that = this;
+	            $button.css({
+                    'cursor' : 'pointer',
+	                'position' : 'absolute',
+	                'left' : '50%',
+	               	'top' : '50%',
+	               	'margin-left' : '-17px',
+	            	'margin-top' : '-17px',
+	                'width' : '34px',
+	                'height' : '34px',
+	                'background' : 'url(/static/imgs/playgif.png?20180606)',
+	            });
+	            var src = this.src;
+                var realSrc;
+                if(src.indexOf('imageView2') > 0){
+                    realSrc = src.substring(0,src.indexOf('imageView2'));
+                }else{
+                    realSrc = src;
+                }
+                
+	            //var realSrc = src.replace('/format/jpg', '');
+	            var that = this;
+
+	            $button.click(function(){
+                    if(that.hasPlay == false) {
+                        that.src = realSrc;
+                        $button.css({'background' : 'url(/static/imgs/loadgif.gif?20180606)'})
+                        that.addEventListener("load", function(e){
+                            $button.remove();
+                        }, false);
+                        that.hasPlay = true;
+                    }
+                });
+
+	            $(this).click(function(){
+	                if(that.hasPlay == false) {
+                        that.src = realSrc;
+                        $button.css({'background' : 'url(/static/imgs/loadgif.gif?20180606)'})
+                        that.addEventListener("load", function(e){
+                            $button.remove();
+                        }, false);
+                        that.hasPlay = true;
+                    }
+	            });
+	            
+	            if($(this).find('span').length ==0)$(this).after($button);
+				
+                
+	        }
+	    });
+	}
+	
+	//热评点赞
+   	
+    var URL = mylib.getUrl('user');//接口域名
+	var API_CMT_PRAISE = URL + '/comment/praise'; //赞
+	var cmt = {
+		//POST
+		post:function(url,data,fn){
+			$.ajax({
+				url: url,
+            	type: 'post',
+            	dataType: 'json',
+            	xhrFields: {withCredentials: true},
+            	data: data,
+            	success : function(res){
+            		fn(res);
+            	},
+			});
+		},
+			
+	       
+	};
+	//赞
+	$('.fw-hot-comments').on('click','.praise-nums',function(){
+		
+		if(!mylib.checkLogin()){
+			return false;
+		}
+		var self = $(this);
+		var cmtId = self.data('id');
+        var data = {id:cmtId};
+		cmt.post(API_CMT_PRAISE,data,function(res){
+			var num = self.children('span').text();//当前点击数
+			num = parseInt(num);
+			if(res.code == 203){
+	              isLogin = false;
+	              mylib.checkLogin();
+	              return false;
+	        }else if(res.code == 0){
+				if(self.hasClass('active')){
+					num = num -1;
+					self.children('span').text(num);
+					self.removeClass('active');
+				}else{
+					num = num + 1;
+					self.children('span').text(num);
+					self.addClass('active');
+				}
+			}
+		});
+	});
+	//站务点赞
+	$('.fw-affair').on('click', '.praise', function(event) {
+        var postId = $(this).attr('data-id');
+        mylib.praise(postId, this);
+        return false;
+    });
+    //投票功能
+    (function(){
+    	//向服务器请求评论数据
+    	var postId = mylib.getQueryString('id');
+    	//如果没有投票信息 就不请求
+        //console.log(title);
+    	if(typeof hasVote == 'undefined' || hasVote == false){
+    		return false;
+    	}
+    	$.ajax({
+            url: '/post/get-vote-by-post-id',
+            type: 'get',
+            dataType: 'json',
+            data: {post_id : postId},
+            success: function(res) {
+                if(res.code == 0){
+	    			if(res.data.length > 0){
+	    				
+	    				var voteModule = createVoteModule(res.data[0]['vote_title'], res.data[0]['vote_options'], res.data[0]['vote_limit'], res.data[0]['vote_type'], res.data[0]['total_vote']);
+	    				var pagination = $('.article-txt-content').find('.pagination');
+			            if(pagination.length > 0){
+			                pagination.before(voteModule);
+			            }else{
+			            	$('.article-txt-content').append(voteModule);   
+			            }
+			            var vote_limit = res.data[0]['vote_limit'];
+				        //*****************************投票模块*****************************//
+				    	//投票模块里面点击修改 弹出选项框
+						$('body').on('click', '.edit-voteform', function(){
+				    		var voteForm = createVoteForm();
+				    		mylib.openPopup(voteForm);
+				    	});
+				    	//删除投票模块
+				    	$('body').on('click', '.del-votemodule', function(){
+				    		//ajax删除文章相关的投票模块
+				    		$('.vote-module').remove();
+				    	});
+				    	//点击投票显示结果页
+				    	$('body').on('click', '.do-vote', function(){
+				    		
+				    		var vote_extend_ids = [];
+				    		
+							var checked = $('.vote-module').find('input:checked');
+				    		if(checked.length > 0){
+				    			if(checked.length > vote_limit){
+				    				mylib.msg('只能选择' + vote_limit + '个选项');
+				    				return false;
+				    			}
+				    			checked.each(function(){
+				    				vote_extend_ids.push($(this).val());
+				    			});
+				    		}else{
+				    			mylib.msg('请至少选择一个选项');
+				    			return false;
+				    		}
+				    			
+				    		mylib.sendPostAjax('/user/do-vote', { 'post_id' : mylib.getQueryString('id') , 'vote_extend_ids' : vote_extend_ids}, function(res) {
+				                if (res.code == 0) {
+				                   //创建新的结果
+				                   	if(res.data){
+				                   		var newModule = createVoteModule(res.data[0]['vote_title'],  res.data[0]['vote_options'], res.data[0]['vote_limit'], res.data[0]['vote_type'], res.data[0]['total_vote']);
+						    			$('.vote-module').remove();
+				                        var pagination = $('.article-txt-content').find('.pagination');
+				                        if(pagination.length > 0){
+				                            pagination.before(newModule);
+				                        }else{
+				                            $('.article-txt-content').append(newModule);
+				                        }
+						    			
+				                   	}
+						    		
+				                }else if(res.code == 203){
+				                	isLogin = false;
+					             	mylib.checkLogin();
+					              	return false;
+				                }
+
+				            });
+				    		
+				    	});
+	    			}
+    				//title, options, limit, type, totalVote
+    			}
+    		}
+        });
+    
+    	//创建投票表单
+    	function createVoteForm(){
+    		var voteForm = '';
+	    	voteForm += '<div class="vote-form">';
+	    	voteForm += 	'<ul>';
+	    	voteForm += 		'<li><span>名称：</span><input type="text" name="title" value="'+ vote_title +'"></li>';
+	    	for(var i = 0; i < vote_options.length; i++){
+	    		voteForm += 	'<li><span>选项'+ vote_options[i]['index'] +'：</span><input type="text" name="column" data-index="'+vote_options[i]['index']+'" value="'+vote_options[i]['option_name']+'"><span class="del-option">del</span></li>';
+	    	}
+	    	
+	    	voteForm += 	'</ul>';
+	    	voteForm += 	'<div><span class="vote-add-more">添加更多</span></div>';
+	    	voteForm += 	'<div>';
+	    	voteForm += 		'<div class="options">';
+	    	voteForm += 			'<span>';
+	    	voteForm +=					'<input type="radio" class="single-check" name="vote-type" value="single">单选';
+	    	voteForm +=					'<input type="radio" class="multi-check" name="vote-type" value="multi">多选';
+	    	voteForm +=				'</span>';
+	    	voteForm += 			'<span class="check-limit">最多<input type="text" value="'+ vote_limit +'">个</span>';
+	    	voteForm += 		'</div>';
+	    	voteForm += 		'<div class="tools">';
+	    	voteForm += 			'<button class="btn btn-small make-votemodule">发起投票</button>';
+	    	voteForm += 			'<button class="btn btn-small no-bg cancel-vote">取消</button>';
+	    	voteForm += 		'</div>';
+	    	voteForm += 	'</div>';
+	    	voteForm += '</div>';
+	    	return voteForm;
+    	}
+    	//创建投票模块
+    	function createVoteModule(title, options, limit, type, totalVote){
+			var voteModule = '';
+	    	voteModule += '<div class="vote-module">';
+	    	//voteModule += 	'<span class="del-votemodule">del</span>';
+			voteModule += 	'<p class="vote-title">投票主题：'+ title +'</p>';
+	    	voteModule += 	'<ul>';
+	    	var hasVoted = false;
+	    	var allVoteNums = 0
+	    	if(options.length > 0){
+
+	    		for (var i = 0; i< options.length; i++) {
+	    			allVoteNums += parseInt(options[i]['vote_nums']);
+	    			if(options[i]['has_voted'] == true){
+	    				hasVoted = true;
+	    			}
+	    		}
+	    		for (var i = 0; i< options.length; i++) {
+	    			var percent = 0;
+	    			if(allVoteNums > 0){
+	    				percent = options[i]['vote_nums'] / allVoteNums;
+	    				percent = percent * 100;
+                        percent = percent.toFixed(1);
+	    			}
+	    			voteModule += '<li>';
+	    			if(type == 'single'){	//单选
+	    				voteModule += '<input type="radio" name="column" value="'+ options[i]['option_id'] +'">'+options[i]['option_name'];
+	    			}else{	//多选
+						voteModule += '<input type="checkbox" name="column" value="'+ options[i]['option_id'] +'">'+options[i]['option_name'];
+	    			}
+	    			if(options[i]['has_voted']){
+	    				voteModule += '<span class="active">(已选)</span>';
+	    			}
+					voteModule += '</li>';
+					if(hasVoted){
+						var swidth;
+						if(mylib.detectmob() == true){
+ 							swidth = percent / 100 * 150;
+							voteModule += '<li class="result"><div class="progress" style="width:150px"><span style="width:'+ swidth +'px"></span></div> '+options[i]['vote_nums']+'票 ('+ percent +'%)</li>';
+						}else{
+							swidth = percent / 100 * 252;
+							voteModule += '<li class="result"><div class="progress"><span style="width:'+ swidth +'px"></span></div> '+options[i]['vote_nums']+'票 ('+ percent +'%)</li>';
+						}
+                       
+	    			}
+	    			
+	    		}
+	    	}
+
+
+	    	voteModule += 	'</ul>';
+	    	if(hasVoted){
+				voteModule += '<div class="voted"><span>您已经投过</span><span class="total">'+ totalVote+'人参与投票</span></div>';
+	    	}else{
+	    		//voteModule += '<div><div><span class="btn do-vote">投票</span><span>最多可以选择'+limit+'个</span></div><div class="edit-voteform"><label class="edit"></label><span>修改</span></div></div>';
+	    		voteModule += '<div class="clearfix tools"><span class="btn do-vote">投票</span><span class="vote-limit">最多可以选择'+limit+'个</span></div>';
+	    	}
+	   		
+	    	voteModule += '</div>';
+	    
+	    	return voteModule;
+
+	    }
+    	
+    	//点击投票，弹出选项框
+    	$('.create-vote').click(function(){
+    		var voteForm = createVoteForm();
+    		mylib.openPopup(voteForm);
+    	});
+    	
+
+		//*****************************创建投票模块*****************************//
+    	//创建投票模块
+    	$('body').on('click', '.make-votemodule', function(){
+    		vote_title = $(this).closest('.vote-form').find('ul').find('input[name=title]').val();
+    		vote_options = [];
+    		var inputs = $(this).closest('.vote-form').find('ul').find('input[name=column]');
+    		inputs.each(function(){
+    			var data = {};
+    			data.name = $(this).val();
+    			data.index = $(this).data('index');
+    			vote_options.push(data);
+    		});
+    		vote_limit = $(this).closest('.vote-form').find('.check-limit').find('input').val();
+    		vote_type = $(this).closest('.vote-form').find('input[name=vote-type]:checked').val();
+    		console.log(vote_type);
+    		var voteModule = createVoteModule(vote_title, vote_options, vote_limit, vote_type);
+    		$('.vote-module').remove();
+    		$('.vote').append(voteModule);
+			mylib.closePopup();
+    	});
+    	//取消创建投票模块
+    	$('body').on('click', '.cancel-vote', function(){
+    		mylib.closePopup();
+		});
+
+    	//添加更多
+    	$('body').on('click', '.vote-add-more', function(){
+    		var ul = $(this).parent().prev('ul');
+    		var len = ul.find('li').length;
+    		var option = '<li><span>选项'+ len +'：</span><input type="text" name="column"><span class="del-option">del</span></li>';
+
+    		ul.append(option);
+    	});
+        //删除选项
+        $('body').on('click', '.del-option', function(){
+            $(this).closest('li').remove();
+        });
+    	
+    	
+       
+ 
+    })();
+    
+    (function(){
+    	function isWeiXin(){
+		  //window.navigator.userAgent属性包含了浏览器类型、版本、操作系统类型、浏览器引擎类型等信息，这个属性可以用来判断浏览器类型
+		  var ua = window.navigator.userAgent.toLowerCase();
+		  //通过正则表达式匹配ua中是否含有MicroMessenger字符串
+		  if(ua.match(/MicroMessenger/i) == 'micromessenger'){
+		  return true;
+		  }else{
+		  return false;
+		  }
+		}
+    	$(function(){
+    		if(true == mylib.detectmob() && false == isWeiXin()){
+    			//在头部插入app下载链接
+    			var str = '';
+    			str += '<div class="downloadBtn" id="goapp" style="display: block;">';
+	        	str += 		'<a href="javascript:;" id="x-button"></a>';
+	        	str += 		'<img src="/static/imgs/ico.png" alt="观察者App">';
+	        	str += 		'<span>观察者App</span>';
+	        	str += 		'<button id="appstore">点击下载</button>';
+				str += '</div>';
+    			$('body').prepend(str);
+
+    			//隐藏文章 显示文章
+    			if($('.article-txt-content').height() > 1100){
+    				$('.article-txt-content').addClass('article-limit');
+    				$('.article-mask').show();
+                    $('.article-expand-more').show();
+    			}
+    			
+    			$('.open-app').show();
+    			$(document).scroll(function(){
+    				var top = $(window).scrollTop();
+    				if(top > 44){
+    					$('.downloadBtn').css('position', 'fixed');
+    				}else{
+						$('.downloadBtn').css('position', 'relative');
+    				}
+    			});
+    		}
+    		
+    		$('.article-expand-more').click(function(){
+    			$('.article-mask').hide();
+    			$('.article-expand-more').hide();
+    			$('.article-txt-content').removeClass('article-limit');
+    		});
+
+    		$('#x-button').click(function(){
+    			$(this).parent().remove();
+    		});
+            $('#appstore').click(function(){
+                appstore();
+                return false;
+            });
+    		$('#appstore,.open-app').click(function(){
+    			appstore();
+    			return false;
+    		});
+            
+            var box = document.querySelector(".open-app");
+            box.addEventListener("touchstart",function(){
+                $(box).css('background-color' , '#bd0509');
+                $(box).find('a').css('color', '#fff');
+            });
+            box.addEventListener("touchend",function(){
+                $(box).css('background-color' , '#fff');
+                $(box).find('a').css('color', '#bd0509');
+            });
+    	});
+    })();
+    
+    var mobileAppInstall = (function(){
+        var ua = navigator.userAgent,
+                loadIframe,
+                win = window,
+                postId = mylib.getQueryString('id');
+
+        var scheme = encodeURIComponent('guanchazhe://guanchazhe/post?id='+postId+'&type=2');
+		function getIntentIframe(){
+		    if(!loadIframe){
+		        var iframe = document.createElement("iframe");
+		        iframe.style.cssText = "display:none;width:0px;height:0px;";
+		        document.body.appendChild(iframe);
+		        loadIframe = iframe;
+		    }
+		    return loadIframe;
+		}
+
+		function getChromeIntent(url){
+		// 根据自己的产品修改吧
+		    return  "intent://www.guancha.cn/#Intent;scheme="+url+";package=cn.guancha.app;end";
+		}
+		var appInstall = {
+		    isChrome:ua.match(/Chrome\/([\d.]+)/) || ua.match(/CriOS\/([\d.]+)/),
+		    isAndroid:ua.match(/(Android);?[\s\/]+([\d.]+)?/),
+		    isWeixin: ua.toLowerCase().match(/MicroMessenger/i),
+		    timeout:500,
+		    /**
+		     * 尝试跳转appurl,如果跳转失败，进入h5url
+		     * @param {Object} appurl 应用地址
+		     * @param {Object} h5url  http地址
+		     */
+		    open:function(){
+		        var t = Date.now();
+		        appurl = 'guanchazhe://guanchazhe/post?id='+ postId +'&type=2';
+		        if(appInstall.isWeixin) h5url = 'https://a.app.qq.com/o/simple.jsp?pkgname=cn.guancha.app&ios_scheme='+scheme+'&android_schema='+scheme;
+			    else h5url = 'https://m.guancha.cn/downloadApp.html';
+		        appInstall.openApp(appurl);
+		        setTimeout(function(){
+		            if(Date.now() - t < appInstall.timeout+100){
+		                h5url && appInstall.openH5(h5url);
+		            }
+		        },appInstall.timeout)
+		    },
+		    openApp:function(appurl){
+		    	if(/Safari/.test(navigator.userAgent) && !/Chrome/.test(navigator.userAgent)) win.location.href = appurl;
+		        if(appInstall.isChrome){
+		            win.location.href = appurl;
+		        }else{
+		            getIntentIframe().src = appurl;
+		        }
+		    },
+		    openH5:function(h5url){
+		        win.location.href = h5url;
+		    }
+		}
+
+
+        return appInstall;
+    })();
+
+    function appstore() {
+        mobileAppInstall.open();
+    }
+
+    (function(){
+    	$(function(){
+			setTimeout(function(){
+	    		var declaration = getDeclaration();
+				if($('.article-txt-content').find('.pagination').length == 0){
+		    		 if($('.vote-module').length > 0){
+		    		 	$('.vote-module').after(declaration);
+		    		 }else{
+						$('.article-txt-content').append(declaration);
+		    		 }
+		   		}
+	    	}, 500);	
+    	});
+    	
+   	})();
+    
+    //获取声明信息
+    function getDeclaration(){
+    	if(typeof isExclusive != 'undefiend' && isExclusive == 1){
+    		return '<div class="bqsm">版权声明</div><div class="bqsm">本文系用户独家授权发布风闻社区的稿件，转载请联系观察者网。</div>';
+    	}else{
+    		return '<div class="mzsm">免责声明</div><div class="mzsm">以上内容为用户在观察者网风闻社区上传并发布，仅代表发帖用户观点。</div>';
+    	}
+    }
+
+})();
+
+
+
+
+
+// 最近更新的专栏-用户头像|用户名称|标题  // 全部专栏-用户头像|用户名称
+
+// $(".recomment-friends-box .user-avatar img").click(function(){
+
+//     sensors.track('web_fengwen_content_click', {
+//         module:"最近更新的专栏",
+//         element_name: "用户头像", 
+//     });
+
+// });
+
+
+// $(".recomment-friends-box .user-main h4 a").click(function(){
+
+//     sensors.track('web_fengwen_content_click', {
+//         module:"最近更新的专栏",
+//         element_name: "用户名称", 
+//     });
+
+// });
+
+
+// $(".recomment-friends-box .article-recommend li a").click(function(){
+
+//     sensors.track('web_fengwen_content_click', {
+//         module:"最近更新的专栏",
+//         element_name: "标题", 
+//     });
+
+// });
+
+
+
+// 产品类型--新闻1、风闻2、视频6  编辑部3 观课堂4 
+
+if($("#comments-container").attr('data-type')==1){
+    var productTypeName="news"
+}
+else if($("#comments-container").attr('data-type')==2){
+    var productTypeName="fengwen"
+}
+else if($("#comments-container").attr('data-type')==3){
+    var productTypeName="bianjibu"
+}
+else if($("#comments-container").attr('data-type')==4){
+    var productTypeName="guanketang"
+}
+else if($("#comments-container").attr('data-type')==6){
+    var productTypeName="video"
+}else{
+    var productTypeName=""
+}
+
+
+
+// web风闻内容页点击(web_fengwen_content_click)
+
+//顶部话题
+$('body').on('click', '.hot-topic-nav .tag', function() {
+    sensors.track('web_fengwen_content_click', {
+        module:"顶部话题",
+    });
+    localStorage.setItem("enter_page",document.title);//入口页面
+    localStorage.setItem("enter_module","顶部话题");//入口模块
+    localStorage.setItem("enter_element","顶部话题");//入口元素
+    localStorage.setItem("enter_serial","");//入口元素序号
+});
+
+// 标题下用户
+$('body').on('click', '.article-content .user-avatar:first', function() {
+    sensors.track('web_fengwen_content_click', {
+        module:"标题下用户",
+    });
+    localStorage.setItem("enter_page",document.title);//入口页面
+    localStorage.setItem("enter_module","标题下用户");//入口模块
+    localStorage.setItem("enter_element","标题下用户");//入口元素
+    localStorage.setItem("enter_serial","");//入口元素序号
+});
+$('body').on('click', '.article-content .user-main:first', function() {
+    sensors.track('web_fengwen_content_click', {
+        module:"标题下用户",
+    });
+    localStorage.setItem("enter_page",document.title);//入口页面
+    localStorage.setItem("enter_module","标题下用户");//入口模块
+    localStorage.setItem("enter_element","标题下用户");//入口元素
+    localStorage.setItem("enter_serial","");//入口元素序号
+});
+// 文章下用户
+$('body').on('click', '.article-bottom-user .user-avatar', function() {
+    sensors.track('web_fengwen_content_click', {
+        module:"文章下用户",
+    });
+    localStorage.setItem("enter_page",document.title);//入口页面
+    localStorage.setItem("enter_module","文章下用户");//入口模块
+    localStorage.setItem("enter_element","文章下用户");//入口元素
+    localStorage.setItem("enter_serial","");//入口元素序号
+});
+$('body').on('click', '.article-bottom-user .user-main h4 a', function() {
+    sensors.track('web_fengwen_content_click', {
+        module:"文章下用户",
+    });
+    localStorage.setItem("enter_page",document.title);//入口页面
+    localStorage.setItem("enter_module","文章下用户");//入口模块
+    localStorage.setItem("enter_element","文章下用户");//入口元素
+    localStorage.setItem("enter_serial","");//入口元素序号
+});
+// 关注 attention
+$('.article-bottom-user').find('.attention').click(function(event) {
+    console.log($('.article-bottom-user').find('.attention').text())
+    if($('.article-bottom-user').find('.attention').text()=="已关注"){
+        sensors.track('web_fengwen_content_click', {
+            module:"已关注",
+        });
+        // localStorage.setItem("enter_page",document.title);//入口页面
+        // localStorage.setItem("enter_module","web风闻内容页点击");//入口模块
+        // localStorage.setItem("enter_element","已关注");//入口元素
+        // localStorage.setItem("enter_serial","");//入口元素序号
+    }else{
+        sensors.track('web_fengwen_content_click', {
+            module:"关注",
+        });
+        // localStorage.setItem("enter_page",document.title);//入口页面
+        // localStorage.setItem("enter_module","web风闻内容页点击");//入口模块
+        // localStorage.setItem("enter_element","关注");//入口元素
+        // localStorage.setItem("enter_serial","");//入口元素序号    
+    }
+
+});
+// 作者文章
+$('body').on('click', '.author-article .title', function() {
+    sensors.track('web_fengwen_content_click', {
+        module:"作者文章",
+    });
+    localStorage.setItem("enter_page",document.title);//入口页面
+    localStorage.setItem("enter_module","作者文章");//入口模块
+    localStorage.setItem("enter_element","作者文章");//入口元素
+    localStorage.setItem("enter_serial","");//入口元素序号
+});
+// 作者文章-查看全部
+$('body').on('click', '.author-article .all', function() {
+    sensors.track('web_fengwen_content_click', {
+        module:"作者文章-查看全部",
+    });
+    localStorage.setItem("enter_page",document.title);//入口页面
+    localStorage.setItem("enter_module","作者文章-查看全部");//入口模块
+    localStorage.setItem("enter_element","作者文章-查看全部");//入口元素
+    localStorage.setItem("enter_serial","");//入口元素序号
+});
+// 分享-微博|微信|QQ空间
+$(".share-box .sina a").click(function(){
+
+    sensors.track('web_fengwen_content_click', {
+        module:"分享",
+        element_name: "微博", 
+    });
+
+        // 内容互动-分享操作
+    sensors.track('comment_operate', {
+        content_id:productTypeName=="新闻"?$("#comments-container").attr('data-id'):mylib.getQueryString('id'),//内容ID
+        product_type:productTypeName,//产品类型--新闻1、风闻2、视频6  编辑部3 观课堂4 
+        operate_type:"直接分享",
+        share_type:"微博", 
+    });
+
+});
+$(".share-box .weixin a").click(function(){
+
+    sensors.track('web_fengwen_content_click', {
+        module:"分享",
+        element_name: "微信", 
+    });
+        // 内容互动-分享操作
+    sensors.track('comment_operate', {
+        content_id:productTypeName=="新闻"?$("#comments-container").attr('data-id'):mylib.getQueryString('id'),//内容ID
+        product_type:productTypeName,//产品类型--新闻1、风闻2、视频6  编辑部3 观课堂4 
+        operate_type:"直接分享",
+        share_type:"微信", 
+    });
+});
+
+$(".share-box .qzone a").click(function(){
+
+    sensors.track('web_fengwen_content_click', {
+        module:"分享",
+        element_name: "QQ空间", 
+    });
+            // 内容互动-分享操作
+    sensors.track('comment_operate', {
+        content_id:productTypeName=="新闻"?$("#comments-container").attr('data-id'):mylib.getQueryString('id'),//内容ID
+        product_type:productTypeName,//产品类型--新闻1、风闻2、视频6  编辑部3 观课堂4 
+        operate_type:"直接分享",
+        share_type:"QQ空间", 
+    });
+
+});
+
+
+// 举报
+$(".tip-off .accusation").click(function(){
+
+    sensors.track('web_fengwen_content_click', {
+        module:"举报",
+    });
+
+});
+
+// 收藏
+
+$('.share-box').find('.op-tools').find('a').eq(0).click(function(){
+    sensors.track('web_fengwen_content_click', {
+        module:"收藏",
+    });
+
+
+    // 内容互动-收藏操作
+    sensors.track('collect_operate', {
+        content_id:mylib.getQueryString('id'),//内容ID
+        product_type:productTypeName,//产品类型--新闻、风闻、视频
+    });
+
+});
+// 评论
+$(".share-box .comment").click(function(){
+
+    sensors.track('web_fengwen_content_click', {
+        module:"评论",
+    });
+
+});
+// 赞
+$(".share-box a:last").click(function(){
+
+    sensors.track('web_fengwen_content_click', {
+        module:"赞",
+    });
+
+});
+
+// 风闻内容页浏览
+sensors.track('fengwen_content_browse', {
+    content_id:productTypeName=="新闻"?$("#comments-container").attr('data-id'):mylib.getQueryString('id'),//内容ID
+    product_type:productTypeName,//产品类型--新闻、风闻、视频
+    enter_page:localStorage.getItem("enter_page"),//入口页面
+    enter_module:localStorage.getItem("enter_module"),//入口模块
+    enter_element:localStorage.getItem("enter_element"),//入口元素
+    enter_serial:localStorage.getItem("enter_serial"),//入口元素序号
+});
+
+
+$('body').on('click', '.btn-publish', function() {  
+    // 内容互动-收藏操作
+    sensors.track('comment_operate', {
+        content_id:GetQueryString('id'),//内容ID
+        product_type:productTypeName,//产品类型--新闻、风闻、视频
+    });
+
+
+});
+
+
+// 功能-关注|取消关注|私信|关注列表|粉丝列表|拉黑此人|举报此人|我的账号|个人信息
+$(".user-info-box .attention").click(function(){
+
+
+
+    if($(".user-level").hasClass("level3")){
+        var userLevel="红V"
+    }else if($(".user-level").hasClass("level2")){
+        var userLevel="黄V"
+    }else if($(".user-level").hasClass("level1")){
+        var userLevel="蓝V"
+    }else{
+        var userLevel="普通"
+    }
+
+    if ($(this).text()=="+关注") {
+  
+
+        //社区关系&氛围- 关注用户操作  1蓝V、2黄V、3红V、0普通
+        sensors.track('attention_operate', {
+            uid:$(".user-info-box .popup-user").attr('user-id'),//内容ID
+            uname:$(".article-bottom-user .user-main h4 a").text(),
+            user_level:userLevel,
+            operate_type:"关注",
+        });
+    }
+    if ($(this).text()=="已关注") {
+
+
+        //社区关系&氛围- 关注用户操作 1蓝V、2黄V、3红V、0普通
+        sensors.track('attention_operate', {
+            uid:$(".user-info-box .popup-user").attr('user-id'),//内容ID
+            uname:$(".article-bottom-user .user-main h4 a").text(),
+            user_level:userLevel,
+            operate_type:"取消关注",
+        });
+    }
+
+});

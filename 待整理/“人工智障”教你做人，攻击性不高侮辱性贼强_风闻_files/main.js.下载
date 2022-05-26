@@ -1,0 +1,12 @@
+(function() {
+    //登录visibility
+    $('.login-btn').on('click', function() {
+        var objMobile = $('#txtMobile');
+        if (!(/^1\d{10}$/.test(objMobile.val()))) {
+            var label = objMobile.parent().find('label.login-error');
+            if (!label.hasClass('visibility')) {
+                label.addClass('visibility');
+            }
+        }
+    });
+})();

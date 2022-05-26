@@ -1,0 +1,74 @@
+(function(){
+	//获取根域名
+    function getRootDomain(){
+        var temp = document.domain.split(".");
+        return temp[temp.length - 2] + '.' + temp[temp.length - 1];
+
+    };
+    function getUrl(key){
+        //return  'https://'+ key +'.'+ getRootDomain();
+    	return  '//'+ key +'.'+ getRootDomain();
+    }
+    
+    var commentUrl = getUrl('user');
+    
+	var cssDepend = {
+		'comments' : commentUrl +'/static/css/new-comments.css?20210805',		//
+		'sinaEmotion' : commentUrl +'/static/plugins/sinaEmotion/jquery.sinaEmotion.css',	//表情样式
+		'umeditor' : commentUrl +'/static/um/themes/comment/css/umeditor.css',	//百度编辑器样式
+	}
+	var jsDepend = {
+		//'mylib' : commentUrl +'/static/js/mylib.js',	
+		'sinaEmotion' : commentUrl +'/static/plugins/sinaEmotion/jquery.sinaEmotion.js',	//表情js文件
+		'um' : {	//百度编辑器js文件
+			'template' : commentUrl +'/static/um/third-party/template.min.js',
+			'comment_config' : commentUrl +'/static/um/comment.config.js?20210714',
+			'umeditor' : commentUrl +'/static/um/umeditor.js?20210719',
+			'lang' : commentUrl +'/static/um/lang/zh-cn/zh-cn.js',
+		},
+		'comments' : commentUrl +'/static/js/comments-new.js?20220524',	//评论插件主文件
+	}
+	
+    /**
+     * 加载css文件
+     * @param href
+     */
+    function loadCss(href){
+    	var link = document.createElement("link");
+        link.rel = "stylesheet";
+        link.href= href;
+        document.head.appendChild(link);
+    }
+    /**
+     * 加载js文件
+     * @param src
+     * 
+     */
+    function loadJs(src){
+    	 var script= document.createElement("script");
+         script.type = "text/javascript";
+         script.src= src;
+         document.body.appendChild(script);
+         return script;
+    }
+	
+	//引入评论插件依赖的css文件
+	loadCss(cssDepend.comments);
+	loadCss(cssDepend.sinaEmotion);
+	loadCss(cssDepend.umeditor);
+
+	
+	//引入评论插件依赖的js文件
+	//loadJs(jsDepend.mylib);
+	loadJs(jsDepend.sinaEmotion);
+	var templateScriptJs = loadJs(jsDepend.um.template);
+	templateScriptJs.onload = function(){
+		loadJs(jsDepend.um.comment_config);
+		umeditorJs = loadJs(jsDepend.um.umeditor);
+		umeditorJs.onload = function(){
+			loadJs(jsDepend.um.lang);
+			loadJs(jsDepend.comments);
+        }
+	}
+})();
+
